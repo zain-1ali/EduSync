@@ -1,0 +1,13 @@
+@import './base.css';
+
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #136dec;
+  --color-background-light: #f6f7f8;
+  --color-background-dark: #101822;
+  --font-display: "Lexend", sans-serif;
+}
+
+/* Tell Tailwind to look up and out of the desktop folder into the UI folder */
+@source "../../../../../../packages/ui";

@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@source "../../../packages/ui";
+
+@theme {
+  --color-primary: #136dec;
+  --color-background-light: #f6f7f8;
+  --color-background-dark: #101822;
+  --font-display: "Lexend", sans-serif;
+}
