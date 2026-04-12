@@ -48,11 +48,25 @@ export function Sidebar() {
             <span className="material-symbols-outlined">payments</span>
             <span className="text-sm">Fees</span>
           </NavLink>
+
+
+                <NavLink to="/staff" className={getNavClasses}>
+      <span className="material-symbols-outlined">badge</span>
+<p className="text-sm font-medium">Staff</p>
+          </NavLink>
+
+          <NavLink to="/sync" className={getNavClasses}>
+<span className="material-symbols-outlined" >sync</span>
+<p className="text-sm font-medium">Sync Status</p>
+          </NavLink>
           
           <NavLink to="/reports" className={getNavClasses}>
             <span className="material-symbols-outlined">description</span>
             <span className="text-sm">Reports</span>
           </NavLink>
+
+
+     
         </nav>
 
         {/* User Profile */}

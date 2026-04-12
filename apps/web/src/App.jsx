@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { LoginPage, DashboardPage, StudentsPage, AddStudentPage, FeesPage, PrintReceiptPage } from '@school/ui';
+import { LoginPage, DashboardPage, StudentsPage, AddStudentPage, FeesPage, PrintReceiptPage, StaffPage, SyncPage } from '@school/ui';
+import { SyncConflictPage } from '@school/ui/pages/SyncConflictPage';
 
 function App() {
   return (
@@ -13,6 +14,9 @@ function App() {
         <Route path="/students/add" element={<AddStudentPage />} />
         <Route path="/fees" element={<FeesPage />} />
         <Route path="/fees/print" element={<PrintReceiptPage />} />
+        <Route path="/staff" element={<StaffPage />} />
+        <Route path="/sync" element={<SyncPage />} />
+        <Route path="/sync/conflicts" element={<SyncConflictPage />} />
       </Routes>
     </BrowserRouter>
   );
