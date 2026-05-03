@@ -48,11 +48,14 @@ export function Sidebar() {
             <span className="material-symbols-outlined">payments</span>
             <span className="text-sm">Fees</span>
           </NavLink>
+  <NavLink to="/academics" className={getNavClasses}>
+        <span class="material-symbols-outlined">school</span>
+<span class="text-sm ">Academics</span>
+          </NavLink>
 
-
-                <NavLink to="/staff" className={getNavClasses}>
+                <NavLink to="/user-management" className={getNavClasses}>
       <span className="material-symbols-outlined">badge</span>
-<p className="text-sm font-medium">Staff</p>
+<p className="text-sm font-medium">User Management</p>
           </NavLink>
 
           <NavLink to="/sync" className={getNavClasses}>
@@ -60,9 +63,19 @@ export function Sidebar() {
 <p className="text-sm font-medium">Sync Status</p>
           </NavLink>
           
-          <NavLink to="/reports" className={getNavClasses}>
-            <span className="material-symbols-outlined">description</span>
-            <span className="text-sm">Reports</span>
+          <NavLink to="/staff" className={getNavClasses}>
+         <span className="material-symbols-outlined">supervisor_account</span>
+            <span className="text-sm">Staff</span>
+          </NavLink>
+
+           <NavLink to="/import" className={getNavClasses}>
+       <span class="material-symbols-outlined group-hover:text-slate-900 transition-colors">upload_file</span>
+<span class="font-semibold text-sm">Import Data</span>
+          </NavLink>
+
+            <NavLink to="/settings" className={getNavClasses}>
+      <span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
           </NavLink>
 
 
