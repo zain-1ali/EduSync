@@ -1,17 +1,49 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLogin } from '../api/hooks/useAuth'; // Ensure this path matches your project structure
+
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  
+  // New state for API integration
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const navigate = useNavigate();
+  const { mutate: loginUser, isPending } = useLogin();
 
   const togglePasswordVisibility = (e) => {
     e.preventDefault();
     setShowPassword(!showPassword);
   };
-const navigate = useNavigate();
+
   const handleLogin = (e) => {
-    e.preventDefault(); // Stop the form from refreshing the page
-    // Later, you will check passwords here. For now, just go to the dashboard!
-    navigate('/dashboard'); 
+    e.preventDefault(); 
+    setErrorMessage(''); // Clear any previous errors
+
+    // Trigger the React Query mutation
+    loginUser(
+      { email, password },
+      {
+        onSuccess: (data) => {
+          // Save the JWT to local storage for the Axios client
+          localStorage.setItem('edusync_token', data.token);
+          
+          // Optional: Save user data for the sidebar/header UI
+          localStorage.setItem('edusync_user', JSON.stringify(data.data.user));
+          
+          // Navigate to dashboard
+          navigate('/dashboard'); 
+        },
+        onError: (error) => {
+          // Display error from the Express backend
+          setErrorMessage(
+            error.response?.data?.message || 'Failed to log in. Please try again.'
+          );
+        }
+      }
+    );
   };
 
   return (
@@ -52,6 +84,14 @@ const navigate = useNavigate();
           <form onSubmit={handleLogin} className="bg-white dark:bg-slate-900 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-[#e7ecf3] dark:border-slate-800 p-8">
             <div className="flex flex-col gap-6">
               
+              {/* API Error Banner */}
+              {errorMessage && (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined">error</span>
+                  {errorMessage}
+                </div>
+              )}
+
               {/* Form Fields */}
               <div className="flex flex-col gap-4">
                 <label className="flex flex-col w-full">
@@ -59,7 +99,10 @@ const navigate = useNavigate();
                   <input 
                     className="form-input w-full rounded-lg text-[#0d131b] dark:text-slate-100 border border-[#cfd9e7] dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary h-12 px-4 text-base transition-all placeholder:text-[#4c6c9a] dark:placeholder:text-slate-500" 
                     placeholder="e.g. admin@school.edu" 
-                    type="text"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </label>
                 
@@ -73,9 +116,13 @@ const navigate = useNavigate();
                       className="form-input w-full rounded-lg text-[#0d131b] dark:text-slate-100 border border-[#cfd9e7] dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary h-12 px-4 text-base transition-all placeholder:text-[#4c6c9a] dark:placeholder:text-slate-500" 
                       placeholder="Enter your password" 
                       type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                     <button 
                       onClick={togglePasswordVisibility}
+                      type="button"
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4c6c9a] dark:text-slate-400 hover:text-primary"
                     >
                       <span className="material-symbols-outlined">
@@ -101,13 +148,36 @@ const navigate = useNavigate();
               {/* Login Button */}
               <button 
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12 rounded-lg transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                disabled={isPending}
+                className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12 rounded-lg transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                <span>Login to Dashboard</span>
-                <span className="material-symbols-outlined text-[20px]">login</span>
+                {isPending ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-[20px]">sync</span>
+                    <span>Authenticating...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Login to Dashboard</span>
+                    <span className="material-symbols-outlined text-[20px]">login</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
+
+          {/* Register Redirect */}
+          <div className="text-center">
+            <p className="text-sm text-[#4c6c9a] dark:text-slate-400">
+              Don't have an account?{' '}
+              <button
+                onClick={() => navigate('/register')}
+                className="text-primary font-medium hover:underline"
+              >
+                Create one
+              </button>
+            </p>
+          </div>
 
           {/* Offline & Security Reassurance */}
           <div className="flex flex-col items-center gap-4 text-center">

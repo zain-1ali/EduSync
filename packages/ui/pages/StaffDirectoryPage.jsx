@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-// import { Layout } from '../components/';
 import { AddStaffDrawer } from '../components/staff/AddStaffDrawer';
 import { Layout } from '../Layout';
-// import { AddStaffDrawer } from './components/staff/AddStaffDrawer'; // We will build this next!
+import { useStaffList, useStaffStats, useUpdateStaffStatus } from '../api/hooks/useStaff';
 
 export function StaffDirectoryPage() {
   // --- State for Filters & Search ---
@@ -14,7 +13,21 @@ export function StaffDirectoryPage() {
   const [isAddStaffDrawerOpen, setIsAddStaffDrawerOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Close dropdowns if the user clicks anywhere else
+  // --- API Hooks ---
+  // const { data: staffData = [], isLoading, isError } = useStaffList();
+
+  const { data: staffData = [], isLoading,isError } = useStaffList({
+  search: searchQuery,
+  role: roleFilter,
+  status: statusFilter
+});
+
+const { data: stats = { totalStaff: 0, activeInstructors: 0, onLeaveCount: 0 } } = useStaffStats();
+
+
+  const { mutate: updateStatus } = useUpdateStaffStatus();
+
+  // Close dropdowns if user clicks outside
   const pageRef = useRef();
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -26,21 +39,37 @@ export function StaffDirectoryPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- Mock Data ---
-  const mockStaffData = [
-    { id: 'SR-2023-014', name: 'Robert Smith', title: 'Senior Faculty', role: 'Instructor', email: 'r.smith@school.edu', phone: '+1 (555) 012-3456', status: 'Active', initials: 'RS' },
-    { id: 'SR-2023-002', name: 'Sarah Jenkins', title: 'Registrar Office', role: 'Administrator', email: 's.jenkins@school.edu', phone: '+1 (555) 098-7654', status: 'Active', initials: 'SJ' },
-    { id: 'SR-2023-088', name: 'Michael Chen', title: 'Mathematics Dept.', role: 'Instructor', email: 'm.chen@school.edu', phone: '+1 (555) 443-2211', status: 'On Leave', initials: 'MC' },
-    { id: 'SR-2023-112', name: 'Linda Gomez', title: 'Support Services', role: 'Support', email: 'l.gomez@school.edu', phone: '+1 (555) 778-9900', status: 'Active', initials: 'LG' },
-  ];
+  // --- Format Data & Calculate Metrics ---
+  const formattedStaff = staffData.map((staff) => ({
+    dbId: staff._id,
+    id: staff.employeeId,
+    name: `${staff.firstName} ${staff.lastName}`,
+    title: staff.specialization || staff.highestEducation || 'Staff',
+    role: staff.role, // 'administrator', 'instructor', 'support staff'
+    email: staff.email,
+    phone: staff.phone,
+    rawStatus: staff.status, // 'active', 'inactive', 'on_leave'
+    displayStatus: staff.status === 'on_leave' ? 'On Leave' : staff.status.charAt(0).toUpperCase() + staff.status.slice(1),
+    initials: `${staff.firstName.charAt(0)}${staff.lastName.charAt(0)}`.toUpperCase()
+  }));
+
+  // const totalStaff = formattedStaff.length;
+  // const activeInstructors = formattedStaff.filter(s => s.role === 'instructor' && s.rawStatus === 'active').length;
+  // const onLeaveCount = formattedStaff.filter(s => s.rawStatus === 'on_leave').length;
 
   // --- Filtering Logic ---
-  const filteredStaff = mockStaffData.filter((staff) => {
+  const filteredStaff = formattedStaff.filter((staff) => {
     const matchesSearch = staff.name.toLowerCase().includes(searchQuery.toLowerCase()) || staff.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter ? staff.role.toLowerCase() === roleFilter.toLowerCase() : true;
-    const matchesStatus = statusFilter ? staff.status.toLowerCase() === statusFilter.toLowerCase() : true;
+    const matchesRole = roleFilter ? staff.role === roleFilter : true;
+    const matchesStatus = statusFilter ? staff.rawStatus === statusFilter : true;
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  // --- Handlers ---
+  const handleStatusChange = (dbId, newStatus) => {
+    updateStatus({ id: dbId, status: newStatus });
+    setActiveDropdown(null);
+  };
 
   return (
     <Layout title="Staff Directory">
@@ -69,7 +98,7 @@ export function StaffDirectoryPage() {
             </div>
             <div>
               <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">Total Staff</span>
-              <span className="text-2xl font-black text-slate-900 dark:text-white">42</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{isLoading ? '-' : stats.totalStaff}</span>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-5">
@@ -78,7 +107,7 @@ export function StaffDirectoryPage() {
             </div>
             <div>
               <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">Active Instructors</span>
-              <span className="text-2xl font-black text-slate-900 dark:text-white">35</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{isLoading ? '-' : stats.activeInstructors}</span>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-5">
@@ -87,7 +116,7 @@ export function StaffDirectoryPage() {
             </div>
             <div>
               <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">On Leave</span>
-              <span className="text-2xl font-black text-slate-900 dark:text-white">2</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{isLoading ? '-' : stats.onLeaveCount}</span>
             </div>
           </div>
         </div>
@@ -108,12 +137,12 @@ export function StaffDirectoryPage() {
             <select 
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="flex-1 md:w-48 bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary/50 text-slate-700 dark:text-slate-300 font-semibold text-sm cursor-pointer focus:outline-none"
+              className="flex-1 md:w-48 bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary/50 text-slate-700 dark:text-slate-300 font-semibold text-sm cursor-pointer focus:outline-none capitalize"
             >
               <option value="">Role: All</option>
-              <option value="admin">Admin</option>
+              <option value="administrator">Administrator</option>
               <option value="instructor">Instructor</option>
-              <option value="support">Support</option>
+              <option value="support staff">Support Staff</option>
             </select>
             <select 
               value={statusFilter}
@@ -122,7 +151,8 @@ export function StaffDirectoryPage() {
             >
               <option value="">Status: All</option>
               <option value="active">Active</option>
-              <option value="leave">On Leave</option>
+              <option value="inactive">Inactive</option>
+              <option value="on_leave">On Leave</option>
             </select>
           </div>
         </div>
@@ -143,7 +173,19 @@ export function StaffDirectoryPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                 
-                {filteredStaff.length === 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500 font-medium">
+                      <span className="material-symbols-outlined animate-spin text-2xl">sync</span>
+                    </td>
+                  </tr>
+                ) : isError ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-red-500 font-medium">
+                      Failed to load staff data.
+                    </td>
+                  </tr>
+                ) : filteredStaff.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-12 text-center text-slate-500 font-medium">
                       No staff members match your current filters.
@@ -151,10 +193,9 @@ export function StaffDirectoryPage() {
                   </tr>
                 ) : (
                   filteredStaff.map((staff) => (
-                    <tr key={staff.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                    <tr key={staff.dbId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          {/* Fallback avatar using initials */}
                           <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
                             {staff.initials}
                           </div>
@@ -168,7 +209,7 @@ export function StaffDirectoryPage() {
                         <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">{staff.id}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{staff.role}</span>
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 capitalize">{staff.role}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-xs">
@@ -178,24 +219,24 @@ export function StaffDirectoryPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight ${
-                          staff.status === 'Active' 
+                          staff.rawStatus === 'active' 
                             ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400' 
                             : 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400'
                         }`}>
-                          {staff.status}
+                          {staff.displayStatus}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right relative">
                         <button 
-                          onClick={() => setActiveDropdown(activeDropdown === staff.id ? null : staff.id)}
+                          onClick={() => setActiveDropdown(activeDropdown === staff.dbId ? null : staff.dbId)}
                           className="text-slate-400 hover:text-primary transition-colors p-1"
                         >
                           <span className="material-symbols-outlined">more_vert</span>
                         </button>
 
                         {/* Action Dropdown Menu */}
-                        {activeDropdown === staff.id && (
-                          <div className="absolute right-8 top-10 mt-1 w-40 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-10 py-2 text-left">
+                        {activeDropdown === staff.dbId && (
+                          <div className="absolute right-8 top-10 mt-1 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-10 py-2 text-left">
                             <button className="w-full text-left px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
                               <span className="material-symbols-outlined text-[18px]">person</span> View Profile
                             </button>
@@ -203,9 +244,22 @@ export function StaffDirectoryPage() {
                               <span className="material-symbols-outlined text-[18px]">edit</span> Edit Details
                             </button>
                             <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
-                            <button className="w-full text-left px-4 py-2 text-sm font-bold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2">
-                              <span className="material-symbols-outlined text-[18px]">pause_circle</span> Mark on Leave
-                            </button>
+                            
+                            {staff.rawStatus === 'active' ? (
+                              <button 
+                                onClick={() => handleStatusChange(staff.dbId, 'on_leave')}
+                                className="w-full text-left px-4 py-2 text-sm font-bold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">pause_circle</span> Mark on Leave
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => handleStatusChange(staff.dbId, 'active')}
+                                className="w-full text-left px-4 py-2 text-sm font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 flex items-center gap-2"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">play_circle</span> Mark Active
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>
@@ -224,7 +278,6 @@ export function StaffDirectoryPage() {
                 <span className="material-symbols-outlined text-sm">chevron_left</span>
               </button>
               <button className="p-1.5 rounded-lg border border-primary bg-primary text-white font-bold text-xs px-3">1</button>
-              <button className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all text-xs px-3">2</button>
               <button className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
                 <span className="material-symbols-outlined text-sm">chevron_right</span>
               </button>
@@ -233,9 +286,7 @@ export function StaffDirectoryPage() {
         </div>
       </div>
 
-      {/* Render Add Staff Drawer (Placeholder) */}
       <AddStaffDrawer isOpen={isAddStaffDrawerOpen} onClose={() => setIsAddStaffDrawerOpen(false)} />
-
     </Layout>
   );
 }

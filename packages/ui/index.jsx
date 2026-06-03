@@ -15,3 +15,6 @@ export { ImportReviewPage } from './pages/ImportReviewPage.jsx';
 export { AcademicsPage } from './pages/AcademicsPage.jsx';
 export { StaffDirectoryPage } from './pages/StaffDirectoryPage.jsx';
 export { StaffProfilePage } from './pages/StaffProfilePage.jsx';
+export {RegistrationPage} from './pages/RegistrationPage.jsx';
+export {SetupPasswordPage} from './pages/SetupPasswordPage.jsx';
+export {DevAdminPage} from './pages/DevAdminPage.jsx';

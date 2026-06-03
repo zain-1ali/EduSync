@@ -1,11 +1,23 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 // import { LoginPage, DashboardPage, StudentsPage, AddStudentPage, FeesPage, PrintReceiptPage, StaffPage, SyncPage } from '@school/ui';
-import { LoginPage, DashboardPage, StudentsPage, AddStudentPage, FeesPage, PrintReceiptPage, StaffPage, SyncPage,SyncConflictPage, SettingsPage, DefaultersPage,ImportUploadPage, ImportMapPage, ImportReviewPage } from '@school/ui';
+import { LoginPage, DashboardPage, StudentsPage, AddStudentPage, FeesPage, PrintReceiptPage, StaffPage, SyncPage,SyncConflictPage, SettingsPage, DefaultersPage,ImportUploadPage, ImportMapPage, ImportReviewPage, RegistrationPage,SetupPasswordPage } from '@school/ui';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: false, // Good for desktop apps
+    },
+  },
+});
 
 
 function App() {
   return (
-    <HashRouter>
+    <QueryClientProvider client={queryClient}>
+      <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
@@ -22,8 +34,11 @@ function App() {
         <Route path="/import" element={<ImportUploadPage />} />
         <Route path="/import/map" element={<ImportMapPage />} />
         <Route path="/import/review" element={<ImportReviewPage />} />
+        <Route path="/register" element={<RegistrationPage />} />
+        <Route path="/setup-password" element={<SetupPasswordPage />} />
       </Routes>
     </HashRouter>
+    </QueryClientProvider>
   );
 }
 

@@ -1,11 +1,23 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { LoginPage, DashboardPage, StudentsPage, AddStudentPage, FeesPage, PrintReceiptPage, StaffPage, SyncPage,SyncConflictPage, SettingsPage, DefaultersPage,ImportUploadPage, ImportMapPage, ImportReviewPage, AcademicsPage,StaffDirectoryPage,StaffProfilePage } from '@school/ui';
+import { LoginPage, DashboardPage, StudentsPage, AddStudentPage, FeesPage, PrintReceiptPage, StaffPage, SyncPage,SyncConflictPage, SettingsPage, DefaultersPage,ImportUploadPage, ImportMapPage, ImportReviewPage, AcademicsPage,StaffDirectoryPage,StaffProfilePage, RegistrationPage,SetupPasswordPage,DevAdminPage } from '@school/ui';
 // import { StaffDirectoryPage } from '@school/ui/pages/StaffDirectoryPage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: false, // Good for desktop apps
+    },
+  },
+});
 
 
 function App() {
   return (
-    <BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
       <Routes>
         {/* Default route redirects to login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -25,9 +37,12 @@ function App() {
         <Route path="/academics" element={<AcademicsPage />} />
         <Route path="/staff" element={<StaffDirectoryPage />} />
         <Route path="/staff/:id" element={<StaffProfilePage />} />
-
+<Route path="/register" element={<RegistrationPage />} />
+<Route path="/setup-password" element={<SetupPasswordPage />} />
+<Route path="/dev-admin" element={<DevAdminPage />} />
       </Routes>
     </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 
