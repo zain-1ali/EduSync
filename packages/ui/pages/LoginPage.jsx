@@ -1,6 +1,18 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLogin } from '../api/hooks/useAuth'; // Ensure this path matches your project structure
+import { getApiError } from '../api/getApiError';
+import { useAuth } from '../auth/AuthProvider';
+
+function readSessionNotice() {
+  try {
+    const notice = sessionStorage.getItem('edusync_session_notice') || '';
+    sessionStorage.removeItem('edusync_session_notice');
+    return notice;
+  } catch {
+    return '';
+  }
+}
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -8,9 +20,11 @@ export function LoginPage() {
   // New state for API integration
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(readSessionNotice);
 
   const navigate = useNavigate();
+  const { setSession } = useAuth();
   const { mutate: loginUser, isPending } = useLogin();
 
   const togglePasswordVisibility = (e) => {
@@ -24,23 +38,14 @@ export function LoginPage() {
 
     // Trigger the React Query mutation
     loginUser(
-      { email, password },
+      { email, password, rememberDevice },
       {
         onSuccess: (data) => {
-          // Save the JWT to local storage for the Axios client
-          localStorage.setItem('edusync_token', data.token);
-          
-          // Optional: Save user data for the sidebar/header UI
-          localStorage.setItem('edusync_user', JSON.stringify(data.data.user));
-          
-          // Navigate to dashboard
-          navigate('/dashboard'); 
+          setSession(data.accessToken || data.token, data.data.user);
+          navigate(data.data.user.role === 'super_admin' ? '/dev-admin' : '/dashboard');
         },
         onError: (error) => {
-          // Display error from the Express backend
-          setErrorMessage(
-            error.response?.data?.message || 'Failed to log in. Please try again.'
-          );
+          setErrorMessage(getApiError(error, 'Failed to log in. Please try again.'));
         }
       }
     );
@@ -109,7 +114,7 @@ export function LoginPage() {
                 <label className="flex flex-col w-full">
                   <div className="flex justify-between items-center pb-2">
                     <span className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">Password</span>
-                    <a className="text-primary text-xs font-medium hover:underline" href="#">Forgot password?</a>
+                    <Link className="text-primary text-xs font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded" to="/forgot-password">Forgot password?</Link>
                   </div>
                   <div className="relative">
                     <input 
@@ -139,6 +144,8 @@ export function LoginPage() {
                   className="w-4 h-4 text-primary border-slate-300 dark:border-slate-700 rounded focus:ring-primary dark:bg-slate-800" 
                   id="remember" 
                   type="checkbox"
+                  checked={rememberDevice}
+                  onChange={(event) => setRememberDevice(event.target.checked)}
                 />
                 <label className="text-sm text-[#4c6c9a] dark:text-slate-400 cursor-pointer select-none" htmlFor="remember">
                   Remember this device for 30 days
@@ -186,7 +193,7 @@ export function LoginPage() {
               <span className="text-xs font-semibold text-primary uppercase tracking-wider">Local Sync Active</span>
             </div>
             <p className="text-[#4c6c9a] dark:text-slate-400 text-sm max-w-[320px]">
-              All data is encrypted and saved locally. You can keep working even if the internet connection is lost.
+              After a successful sign-in, authorized school data is cached locally so supported work can continue during a connection loss.
             </p>
           </div>
         </div>
@@ -196,9 +203,9 @@ export function LoginPage() {
       <footer className="w-full p-6 text-center text-[#4c6c9a] dark:text-slate-500 text-xs">
         <p>© 2026 EduSync School Management. All rights reserved.</p>
         <div className="flex justify-center gap-4 mt-2">
-          <a className="hover:text-primary transition-colors" href="#">Terms of Service</a>
-          <a className="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-          <a className="hover:text-primary transition-colors" href="#">Support</a>
+          <Link className="hover:text-primary transition-colors" to="/legal/terms">Terms of Service</Link>
+          <Link className="hover:text-primary transition-colors" to="/legal/privacy">Privacy Policy</Link>
+          <Link className="hover:text-primary transition-colors" to="/legal/support">Support</Link>
         </div>
       </footer>
     </div>

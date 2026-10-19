@@ -1,84 +1,99 @@
-import { ConflictBanner } from "../components/sync/ConflictBanner";
-import { ConflictCard } from "../components/sync/ConflictCard";
-import { Layout } from "../Layout";
-
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocalData } from '../data/LocalDataProvider';
+import { Layout } from '../Layout';
 
 export function SyncConflictPage() {
-  
-  // Data for the Local Card
-  const localFields = [
-    { label: "Student Name", value: "James Wilson", isConflict: false },
-    { label: "Primary Address", value: "442 Oak Lane, North Wing, Apt 4B", isConflict: true },
-    { label: "Phone Number", value: "(555) 123-4567", isConflict: false },
-    { label: "Current Fee Balance", value: "$1,250.00", isConflict: true },
-  ];
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { db, sync } = useLocalData();
+  const [conflict, setConflict] = useState(null);
+  const [selection, setSelection] = useState({});
+  const [message, setMessage] = useState('');
+  const id = searchParams.get('id');
 
-  // Data for the Cloud Card
-  const cloudFields = [
-    { label: "Student Name", value: "James Wilson", isConflict: false },
-    { label: "Primary Address", value: "442 Oak Lane, Suite 402", isConflict: true },
-    { label: "Phone Number", value: "(555) 123-4567", isConflict: false },
-    { label: "Current Fee Balance", value: "$1,400.00", isConflict: true },
-  ];
+  useEffect(() => {
+    if (!db || !id) return;
+    db.conflicts.get(id).then(setConflict);
+  }, [db, id]);
+
+  const fields = useMemo(() => {
+    if (!conflict) return [];
+    const ignored = new Set(['tenantId', 'version', 'createdAt', 'updatedAt', 'syncStatus']);
+    return [...new Set([
+      ...Object.keys(conflict.local || {}),
+      ...Object.keys(conflict.server || {}),
+    ])].filter((key) => !ignored.has(key));
+  }, [conflict]);
+
+  const resolve = async (resolution) => {
+    if (!conflict || !sync) return;
+    setMessage('');
+    try {
+      let merged;
+      if (resolution === 'merge') {
+        merged = Object.fromEntries(
+          fields.map((field) => [
+            field,
+            selection[field] === 'server'
+              ? conflict.server?.[field]
+              : conflict.local?.[field],
+          ])
+        );
+      }
+      await sync.resolveConflict(conflict.id, resolution, merged);
+      navigate('/sync');
+    } catch (error) {
+      setMessage(error.message || 'Conflict could not be resolved.');
+    }
+  };
 
   return (
     <Layout title="Sync Management">
-      {/* Container with flex gap-8 instead of margins */}
       <div className="flex flex-col gap-8 max-w-[1000px] mx-auto w-full p-6 md:p-8 flex-1">
-        
-        {/* Banner */}
-        <ConflictBanner studentId="#4402" />
+        {!id ? (
+          <p className="rounded-xl border border-slate-200 p-8 text-center text-slate-500">Select a conflict from the sync page.</p>
+        ) : !conflict ? (
+          <p className="p-8 text-center text-slate-500">Loading conflict…</p>
+        ) : (
+          <>
+            <header>
+              <p className="text-sm font-black uppercase tracking-widest text-amber-600">{conflict.entityType}</p>
+              <h1 className="text-3xl font-black">Resolve data conflict</h1>
+              <p className="text-slate-500">Record {conflict.entityId}</p>
+            </header>
 
-        {/* Headline */}
-        <div className="text-center flex flex-col gap-2">
-          <h1 className="text-slate-900 dark:text-white tracking-tight text-3xl font-extrabold leading-tight">
-            Resolve Data Conflict
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-base font-normal leading-normal">
-            James Wilson (Grade 10-B) • Last successfully synced 4 hours ago
-          </p>
-        </div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="grid grid-cols-[minmax(120px,1fr)_2fr_2fr] bg-slate-100 dark:bg-slate-800 p-3 text-xs font-black uppercase">
+                <span>Field</span><span>Local value</span><span>Server value</span>
+              </div>
+              {fields.map((field) => {
+                const local = conflict.local?.[field];
+                const server = conflict.server?.[field];
+                const differs = JSON.stringify(local) !== JSON.stringify(server);
+                return (
+                  <div key={field} className={`grid grid-cols-[minmax(120px,1fr)_2fr_2fr] gap-2 p-3 border-t border-slate-200 dark:border-slate-800 ${differs ? 'bg-amber-50/60 dark:bg-amber-950/10' : ''}`}>
+                    <span className="font-bold break-words">{field}</span>
+                    <button type="button" onClick={() => setSelection((current) => ({ ...current, [field]: 'local' }))} className={`text-left rounded p-2 break-all ${selection[field] !== 'server' ? 'ring-2 ring-primary' : ''}`}>
+                      {local == null ? '—' : typeof local === 'object' ? JSON.stringify(local) : String(local)}
+                    </button>
+                    <button type="button" onClick={() => setSelection((current) => ({ ...current, [field]: 'server' }))} className={`text-left rounded p-2 break-all ${selection[field] === 'server' ? 'ring-2 ring-primary' : ''}`}>
+                      {server == null ? '—' : typeof server === 'object' ? JSON.stringify(server) : String(server)}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
 
-        {/* Cards Container */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ConflictCard 
-            title="Local Version"
-            subtitle="Saved on this computer"
-            icon="laptop_mac"
-            headerClass="bg-slate-100 dark:bg-slate-800"
-            fields={localFields}
-            buttonText="Keep Local Version"
-            buttonIcon="check_circle"
-            onSelect={() => console.log('Kept Local')}
-          />
-          
-          <ConflictCard 
-            title="Cloud Version"
-            subtitle="Synced from Server"
-            icon="cloud_done"
-            headerClass="bg-primary/10 dark:bg-primary/20 border-b-primary/20"
-            fields={cloudFields}
-            buttonText="Keep Cloud Version"
-            buttonIcon="cloud_upload"
-            onSelect={() => console.log('Kept Cloud')}
-          />
-        </div>
-
-        {/* Footer Actions */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-6 border-t border-slate-200 dark:border-slate-800 mt-auto">
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-            <span className="font-bold text-slate-700 dark:text-slate-300">Note:</span> Choosing a version will overwrite the other data immediately across the system once synchronization resumes.
-          </p>
-          <div className="flex gap-3 w-full md:w-auto">
-            <button className="flex-1 md:flex-none px-5 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-              Review Later
-            </button>
-            <button className="flex-1 md:flex-none px-5 h-10 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 text-sm font-bold hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
-              Cancel Sync
-            </button>
-          </div>
-        </div>
-
+            {message && <p className="text-red-600 font-semibold" role="alert">{message}</p>}
+            <footer className="flex flex-wrap justify-end gap-3">
+              <button type="button" onClick={() => navigate('/sync')} className="h-11 px-4 rounded-lg border border-slate-300 font-bold">Review later</button>
+              <button type="button" onClick={() => resolve('server')} className="h-11 px-4 rounded-lg border border-primary text-primary font-bold">Keep server</button>
+              <button type="button" onClick={() => resolve('local')} className="h-11 px-4 rounded-lg border border-primary text-primary font-bold">Keep local</button>
+              <button type="button" onClick={() => resolve('merge')} className="h-11 px-5 rounded-lg bg-primary text-white font-bold">Use selected fields</button>
+            </footer>
+          </>
+        )}
       </div>
     </Layout>
   );

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useSetupPassword } from '../api/hooks/useAuth';
+import { getApiError } from '../api/getApiError';
 
 export function SetupPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -36,8 +37,15 @@ export function SetupPasswordPage() {
     if (passwords.password !== passwords.confirm) {
       return setErrorMsg('Passwords do not match.');
     }
-    if (passwords.password.length < 8) {
-      return setErrorMsg('Password must be at least 8 characters long.');
+    if (
+      passwords.password.length < 12 ||
+      !/[a-z]/.test(passwords.password) ||
+      !/[A-Z]/.test(passwords.password) ||
+      !/[0-9]/.test(passwords.password)
+    ) {
+      return setErrorMsg(
+        'Use at least 12 characters with uppercase, lowercase, and a number.'
+      );
     }
 
     setupPassword(
@@ -47,7 +55,9 @@ export function SetupPasswordPage() {
           setIsSuccess(true);
         },
         onError: (error) => {
-          setErrorMsg(error.response?.data?.message || 'Failed to setup password. The link may have expired.');
+          setErrorMsg(
+            getApiError(error, 'Failed to set up password. The link may have expired.')
+          );
         }
       }
     );

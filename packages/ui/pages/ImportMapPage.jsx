@@ -1,75 +1,157 @@
-import { DataPreviewTable } from "../components/import/DataPreviewTable";
-import { FieldMappingTable } from "../components/import/FieldMappingTable";
-import { MissingFieldsPanel } from "../components/import/MissingFieldsPanel";
-import { VerticalImportStepper } from "../components/import/VerticalImportStepper";
-import { Layout } from "../Layout";
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocalData } from '../data/LocalDataProvider';
+import { Layout } from '../Layout';
+
+const targetFields = [
+  ['name', 'Student name'],
+  ['admissionNumber', 'Admission number'],
+  ['dateOfBirth', 'Date of birth'],
+  ['gender', 'Gender'],
+  ['className', 'Class'],
+  ['sectionName', 'Section'],
+  ['guardianName', 'Guardian name'],
+  ['guardianPhone', 'Guardian phone'],
+  ['guardianEmail', 'Guardian email'],
+];
+
+function suggest(header) {
+  const normalized = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return (
+    targetFields.find(([key, label]) =>
+      [key, label].some(
+        (value) => value.toLowerCase().replace(/[^a-z0-9]/g, '') === normalized
+      )
+    )?.[0] || ''
+  );
+}
 
 export function ImportMapPage() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const { db } = useLocalData();
+  const jobId = params.get('job');
+  const [job, setJob] = useState(null);
+  const [mapping, setMapping] = useState({});
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!db || !jobId) return;
+    db.importJobs.get(jobId).then((record) => {
+      setJob(record || null);
+      if (record) {
+        setMapping(
+          Object.keys(record.mapping || {}).length
+            ? record.mapping
+            : Object.fromEntries(record.headers.map((header) => [header, suggest(header)]))
+        );
+      }
+    });
+  }, [db, jobId]);
+
+  const selectedTargets = useMemo(() => Object.values(mapping), [mapping]);
+  const missingRequired = ['name', 'admissionNumber'].filter(
+    (field) => !selectedTargets.includes(field)
+  );
+
+  const save = async (status = 'mapping') => {
+    if (!job) return;
+    await db.importJobs.update(job.id, {
+      mapping,
+      status,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const continueToReview = async () => {
+    setError('');
+    if (missingRequired.length) {
+      setError('Map both Student name and Admission number before continuing.');
+      return;
+    }
+    await save('review');
+    navigate(`/import/review?job=${job.id}`);
+  };
+
   return (
     <Layout title="Data Import">
-      <div className="max-w-[1100px] w-full mx-auto px-4 py-8 flex flex-col gap-8">
-        
-        {/* Breadcrumbs */}
-        <div className="flex flex-wrap gap-2 text-sm font-medium">
-          <span className="text-slate-500">Settings</span>
-          <span className="text-slate-500">/</span>
-          <span className="text-slate-500">Data Import</span>
-          <span className="text-slate-500">/</span>
-          <span className="text-slate-900 dark:text-white font-bold">Step 2: Map Fields</span>
-        </div>
-
-        {/* Page Heading */}
-        <div className="flex flex-wrap justify-between items-end gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-tight">Map Your Data</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-base">Match the columns from your uploaded file to the corresponding school record fields.</p>
+      <div className="max-w-4xl w-full mx-auto px-4 py-8">
+        <h1 className="text-3xl font-black">Map file columns</h1>
+        <p className="text-slate-500 mt-1">
+          Match columns in {job?.fileName || 'your file'} to EduSync student fields.
+        </p>
+        {!job ? (
+          <div className="mt-8 rounded-xl border p-10 text-center text-slate-500">
+            {jobId ? 'Import draft not found or still loading.' : 'No import draft was selected.'}
           </div>
-          <button className="flex items-center justify-center rounded-lg h-10 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-sm font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-            <span className="material-symbols-outlined mr-2 text-sm">download</span>
-            Download Template
-          </button>
-        </div>
-
-        {/* Main Grid Layout */}
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-          
-          {/* Sidebar */}
-          <VerticalImportStepper />
-
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col gap-6 w-full">
-            <FieldMappingTable />
-            <MissingFieldsPanel />
-            <DataPreviewTable />
-          </div>
-
-        </div>
-
-        {/* Action Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between py-6 border-t border-slate-200 dark:border-slate-800 gap-4">
-          <button className="px-6 h-10 rounded-lg text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full sm:w-auto">
-            Back to Upload
-          </button>
-          
-          <div className="flex gap-4 w-full sm:w-auto">
-            <button className="flex-1 sm:flex-none px-6 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-              Save Draft
-            </button>
-            <button className="flex-1 sm:flex-none px-8 h-10 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 flex items-center justify-center">
-              Continue to Review
-              <span className="material-symbols-outlined ml-2 text-sm">arrow_forward</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Offline Note */}
-        <div className="text-center text-xs text-slate-400 dark:text-slate-500 pb-4">
-          <div className="flex items-center justify-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">bolt</span>
-            Processed locally in your browser for maximum privacy and offline availability.
-          </div>
-        </div>
-
+        ) : (
+          <>
+            <div className="mt-6 divide-y rounded-xl border border-slate-200 dark:border-slate-800">
+              {job.headers.map((header) => (
+                <label
+                  key={header}
+                  className="grid gap-2 p-4 md:grid-cols-2 md:items-center"
+                >
+                  <span className="font-bold">{header}</span>
+                  <select
+                    value={mapping[header] || ''}
+                    onChange={(event) =>
+                      setMapping((current) => ({ ...current, [header]: event.target.value }))
+                    }
+                    className="rounded-lg border border-slate-300 bg-white p-2 dark:bg-slate-900"
+                  >
+                    <option value="">Do not import</option>
+                    {targetFields.map(([value, label]) => (
+                      <option
+                        key={value}
+                        value={value}
+                        disabled={
+                          selectedTargets.includes(value) && mapping[header] !== value
+                        }
+                      >
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+            <div className="mt-6 overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800">
+                  <tr>
+                    {job.headers.map((header) => (
+                      <th key={header} className="p-3">{header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {job.rows.slice(0, 3).map((row) => (
+                    <tr key={row._row} className="border-t dark:border-slate-800">
+                      {job.headers.map((header) => (
+                        <td key={header} className="p-3">{String(row[header] ?? '')}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {error && <p role="alert" className="mt-4 font-semibold text-red-600">{error}</p>}
+            <div className="mt-8 flex flex-wrap justify-between gap-3 border-t pt-6">
+              <button className="rounded-lg px-5 py-2 font-bold" onClick={() => navigate('/import')}>
+                Back to Upload
+              </button>
+              <div className="flex gap-3">
+                <button className="rounded-lg bg-slate-200 px-5 py-2 font-bold dark:bg-slate-800" onClick={() => save()}>
+                  Save Draft
+                </button>
+                <button className="rounded-lg bg-primary px-5 py-2 font-bold text-white" onClick={continueToReview}>
+                  Continue to Review
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Layout>
   );
