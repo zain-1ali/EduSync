@@ -1,11 +1,42 @@
 {
   "name": "@school/ui",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "0.1.0",
+  "private": true,
   "type": "module",
+  "main": "./index.jsx",
+  "exports": {
+    ".": "./index.jsx",
+    "./AppRoutes": "./AppRoutes.jsx",
+    "./AuthProvider": "./auth/AuthProvider.jsx",
+    "./LocalDataProvider": "./data/LocalDataProvider.jsx"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
   "dependencies": {
+    "@school/contracts": "*",
+    "@school/data": "*",
     "@tanstack/react-query": "^5.100.11",
     "axios": "^1.16.1",
+    "exceljs": "^4.4.0",
     "react-router-dom": "^7.14.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.4.0",
+    "jsdom": "^27.0.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "vitest": "^4.0.16"
   }
 }

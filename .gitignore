@@ -12,6 +12,7 @@ Thumbs.db
 
 # Environment Variables
 .env
+.vercel
 .env.local
 .env.development.local
 .env.test.local

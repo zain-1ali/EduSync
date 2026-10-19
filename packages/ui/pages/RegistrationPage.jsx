@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRegisterSchool } from '../api/hooks/useSchools'; // Adjust path if necessary
+import { getApiError } from '../api/getApiError';
 
 export function RegistrationPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -24,7 +25,7 @@ export function RegistrationPage() {
       },
       onError: (error) => {
         // Display the error message sent from the Express backend
-        setErrorMessage(error.response?.data?.message || 'Something went wrong. Please try again.');
+        setErrorMessage(getApiError(error));
       }
     });
   };
@@ -200,7 +201,7 @@ export function RegistrationPage() {
             {/* Submit Action */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-slate-200 dark:border-slate-800">
               <p className="text-xs text-slate-500 text-center sm:text-left max-w-xs">
-                By submitting this form, you agree to our <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>.
+                By submitting this form, you agree to our <Link to="/legal/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link to="/legal/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
               </p>
               
               <button 

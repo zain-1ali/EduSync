@@ -22,3 +22,29 @@ export const useLogin = () => {
     }
   });
 };
+
+export const useForgotPassword = () => {
+  return useMutation({
+    mutationFn: async ({ email }) => {
+      const response = await apiClient.post('/auth/forgot-password', { email });
+      return response.data;
+    },
+  });
+};
+
+export const useResetPassword = () => {
+  return useMutation({
+    mutationFn: async (data) => {
+      const response = await apiClient.post('/auth/reset-password', data);
+      return response.data;
+    },
+  });
+};
+
+export const useLogout = () => {
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.post('/auth/logout');
+    },
+  });
+};

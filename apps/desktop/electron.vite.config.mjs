@@ -9,9 +9,7 @@ export default defineConfig({
   renderer: {
     resolve: {
       alias: {
-        '@renderer': resolve('src/renderer/src'),
-        // THE MAGIC LINE: Route imports directly to the raw package folder
-        '@school/ui': resolve(__dirname, '../../packages/ui/index.jsx').replace(/\\/g, '/')
+        '@renderer': resolve('src/renderer/src')
       }
     },
     plugins: [react(), tailwindcss()]

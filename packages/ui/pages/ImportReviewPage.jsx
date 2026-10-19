@@ -1,108 +1,164 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocalData } from '../data/LocalDataProvider';
 import { Layout } from '../Layout';
-import { ValidationStats } from '../components/import/ValidationStats';
-import { FlaggedRecords } from '../components/import/FlaggedRecords';
-import { ImportStatus } from '../components/import/ImportStatus';
-
 
 export function ImportReviewPage() {
-  // State Machine: 'review' -> 'importing' -> 'success'
-  const [importStatus, setImportStatus] = useState('review');
-  const [progress, setProgress] = useState(0);
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const { db, repositories } = useLocalData();
+  const jobId = params.get('job');
+  const [job, setJob] = useState(null);
+  const [existingAdmissions, setExistingAdmissions] = useState(new Set());
+  const [skippedRows, setSkippedRows] = useState(new Set());
+  const [status, setStatus] = useState('review');
+  const [error, setError] = useState('');
 
-  // Mock Data
-  const flaggedData = [
-    { row: 14, name: "John Doe", issue: "Missing 'Date of Birth' field.", icon: "person_off" },
-    { row: 32, name: "Jane Smith", issue: "Invalid email format: 'jane.smith@school'", icon: "alternate_email" }
-  ];
+  useEffect(() => {
+    if (!db || !jobId) return;
+    Promise.all([db.importJobs.get(jobId), repositories.students.list()])
+      .then(([record, students]) => {
+        setJob(record || null);
+        setExistingAdmissions(
+          new Set(students.map((student) => String(student.admissionNumber).toLowerCase()))
+        );
+      })
+      .catch((nextError) => setError(nextError.message));
+  }, [db, jobId, repositories]);
 
-  const handleStartImport = () => {
-    setImportStatus('importing');
-    
-    // Simulate import progress for demonstration
-    let currentProgress = 0;
-    const interval = setInterval(() => {
-      currentProgress += 20;
-      setProgress(currentProgress);
-      if (currentProgress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => setImportStatus('success'), 500);
+  const evaluatedRows = useMemo(() => {
+    if (!job) return [];
+    const seen = new Set(existingAdmissions);
+    return job.rows.map((source) => {
+      const student = Object.fromEntries(
+        Object.entries(job.mapping)
+          .filter(([, target]) => target)
+          .map(([header, target]) => [target, String(source[header] ?? '').trim()])
+      );
+      const issues = [];
+      if (!student.name) issues.push('Student name is required');
+      if (!student.admissionNumber) issues.push('Admission number is required');
+      const admissionKey = student.admissionNumber?.toLowerCase();
+      if (admissionKey && seen.has(admissionKey)) issues.push('Duplicate admission number');
+      if (admissionKey) seen.add(admissionKey);
+      if (
+        student.guardianEmail &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(student.guardianEmail)
+      ) {
+        issues.push('Guardian email is invalid');
       }
-    }, 500);
+      return { source, student, issues };
+    });
+  }, [existingAdmissions, job]);
+
+  const validRows = evaluatedRows.filter(
+    ({ source, issues }) => !issues.length && !skippedRows.has(source._row)
+  );
+  const invalidRows = evaluatedRows.filter(({ issues }) => issues.length);
+
+  const commit = async () => {
+    setError('');
+    setStatus('importing');
+    try {
+      const records = await repositories.students.bulkCreate(
+        validRows.map(({ student }) => ({ ...student, status: 'active' }))
+      );
+      await db.importJobs.update(job.id, {
+        status: 'completed',
+        importedCount: records.length,
+        skippedCount: evaluatedRows.length - records.length,
+        completedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      setStatus('success');
+    } catch (nextError) {
+      setError(nextError.message);
+      setStatus('review');
+    }
   };
 
   return (
     <Layout title="Data Import">
-      <div className="flex flex-col max-w-[960px] w-full mx-auto px-4 py-8 gap-6 flex-1">
-        
-        {/* Breadcrumbs / Stepper */}
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          <span className="text-primary text-sm font-medium flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">check_circle</span>
-            Select File
-          </span>
-          <span className="text-slate-400 text-sm font-medium">/</span>
-          <span className="text-primary text-sm font-medium flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">check_circle</span>
-            Map Fields
-          </span>
-          <span className="text-slate-400 text-sm font-medium">/</span>
-          <span className="text-slate-900 dark:text-white text-sm font-bold flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">radio_button_checked</span>
-            Validate & Finalize
-          </span>
-        </div>
-
-        {/* Page Header & Actions */}
-        <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 border-b border-slate-200 dark:border-slate-800 pb-6">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Final Validation</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-base">Review flagged records and confirm your import to the local database.</p>
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8">
+        <h1 className="text-3xl font-black">Validate and import</h1>
+        {!job ? (
+          <p className="rounded-xl border p-10 text-center text-slate-500">
+            {error || 'Import draft not found or still loading.'}
+          </p>
+        ) : status === 'success' ? (
+          <div className="rounded-xl border border-green-300 bg-green-50 p-8 text-center dark:bg-green-950/30">
+            <h2 className="text-2xl font-black text-green-800 dark:text-green-300">
+              Imported {validRows.length} students
+            </h2>
+            <p className="mt-2 text-sm text-green-700 dark:text-green-400">
+              Records were saved locally and queued for synchronization.
+            </p>
+            <button className="mt-6 rounded-lg bg-primary px-5 py-2 font-bold text-white" onClick={() => navigate('/students')}>
+              View Students
+            </button>
           </div>
-          
-          {importStatus === 'review' && (
-            <div className="flex gap-3 items-center">
-              <button className="flex min-w-[84px] items-center justify-center rounded-lg h-10 px-4 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Stat label="Rows" value={evaluatedRows.length} />
+              <Stat label="Ready" value={validRows.length} />
+              <Stat label="Flagged" value={invalidRows.length} />
+            </div>
+            {invalidRows.length > 0 && (
+              <section className="rounded-xl border border-amber-300">
+                <h2 className="border-b p-4 text-lg font-black">Flagged rows</h2>
+                <ul className="divide-y">
+                  {invalidRows.map(({ source, student, issues }) => (
+                    <li key={source._row} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                      <div>
+                        <p className="font-bold">Row {source._row}: {student.name || 'Unnamed student'}</p>
+                        <p className="text-sm text-amber-700">{issues.join('; ')}</p>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm font-bold">
+                        <input
+                          type="checkbox"
+                          checked={skippedRows.has(source._row)}
+                          onChange={(event) =>
+                            setSkippedRows((current) => {
+                              const next = new Set(current);
+                              if (event.target.checked) next.add(source._row);
+                              else next.delete(source._row);
+                              return next;
+                            })
+                          }
+                        />
+                        Skip row
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {error && <p role="alert" className="font-semibold text-red-600">{error}</p>}
+            <div className="flex flex-wrap justify-between border-t pt-6">
+              <button className="rounded-lg px-5 py-2 font-bold" onClick={() => navigate(`/import/map?job=${job.id}`)}>
                 Back to Mapping
               </button>
-              <button 
-                onClick={handleStartImport}
-                className="flex min-w-[140px] items-center justify-center rounded-lg h-10 px-6 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors active:scale-95"
+              <button
+                className="rounded-lg bg-primary px-5 py-2 font-bold text-white disabled:opacity-50"
+                disabled={!validRows.length || status === 'importing'}
+                onClick={commit}
               >
-                Start Import
+                {status === 'importing' ? 'Importing…' : `Import ${validRows.length} valid rows`}
               </button>
             </div>
-          )}
-        </div>
-
-        {/* Only show Review Content if we haven't successfully finished */}
-        {importStatus !== 'success' && (
-          <>
-            <ValidationStats readyCount={50} draftCount={2} />
-            
-            {/* Hide Flagged Records while the progress bar is running to keep UI clean */}
-            {importStatus === 'review' && <FlaggedRecords records={flaggedData} />}
           </>
         )}
-
-        {/* Progress Bar & Success States */}
-        <ImportStatus 
-          status={importStatus} 
-          progress={progress} 
-          currentRecord={Math.floor((progress / 100) * 52)} 
-          totalRecords={52} 
-          onComplete={() => console.log('Redirecting to Student List...')}
-        />
-
-        {/* Footer Database Info */}
-        <div className="mt-auto flex items-center justify-center gap-3 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700/50">
-          <span className="material-symbols-outlined text-slate-400">database</span>
-          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-widest">
-            Offline-First Sync Active • Local Database Ready
-          </p>
-        </div>
-
       </div>
     </Layout>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="text-2xl font-black">{value}</p>
+    </div>
   );
 }

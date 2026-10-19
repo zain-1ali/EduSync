@@ -10,13 +10,6 @@ const registerSchoolApi = async (schoolData) => {
 // React Query Hook
 export const useRegisterSchool = () => {
   return useMutation({
-    mutationFn: registerSchoolApi,
-    onSuccess: (data) => {
-      // You can trigger toast notifications here!
-      console.log('Registration Successful:', data.message);
-    },
-    onError: (error) => {
-      console.error('Registration Failed:', error.response?.data?.message || error.message);
-    }
+    mutationFn: registerSchoolApi
   });
 };

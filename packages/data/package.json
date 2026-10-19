@@ -1,0 +1,25 @@
+{
+  "name": "@school/data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@school/contracts": "*",
+    "dexie": "^4.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "fake-indexeddb": "^6.2.4",
+    "globals": "^17.4.0",
+    "vitest": "^4.0.16"
+  }
+}
